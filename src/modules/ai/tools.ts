@@ -60,6 +60,10 @@ export interface SyncResult {
 export async function syncTools(companyId: string, connectorId: string, payload: z.infer<typeof syncPayloadSchema>): Promise<SyncResult> {
   const res: SyncResult = { added: 0, updated: 0, stale: 0, total: 0, skipped: 0 };
   await withTransaction(async (client: PoolClient) => {
+    // With one shared service key the company's own backend cannot tell users apart, so our role filter is the only
+    // protection: new tools then start disabled and admin-only until the admin has reviewed them.
+    const mode = payload.authMode ?? (await client.query('SELECT auth_mode FROM connectors WHERE id = $1', [connectorId])).rows[0]?.auth_mode;
+    const strict = mode === 'static';
     const existing = (await client.query('SELECT id, name, method, path FROM api_tools WHERE company_id = $1', [companyId])).rows;
     const byRoute = new Map(existing.map((r) => [`${r.method} ${r.path}`, r]));
     const usedNames = new Set(existing.map((r) => r.name as string));
@@ -95,8 +99,8 @@ export async function syncTools(companyId: string, connectorId: string, payload:
           [
             companyId, connectorId, name, t.method, t.path, t.operationId ?? null, t.summary ?? '', t.description ?? '', t.tags ?? [],
             JSON.stringify(schema), JSON.stringify(paramMap), hasBody, risk,
-            risk === 'read' && payload.source !== 'recorded', // learned-from-traffic routes have no description: admin must review them first
-            defaultRolesFor(risk), payload.source,
+            !strict && risk === 'read' && payload.source !== 'recorded', // learned-from-traffic routes have no description: admin must review them first
+            strict ? ['company_admin'] : defaultRolesFor(risk), payload.source,
           ],
         );
         res.added++;

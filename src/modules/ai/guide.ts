@@ -57,7 +57,7 @@ export function buildGuide(stackId: string | null | undefined): { stack: Stack; 
     {
       id: 'place',
       title: '2. Put it on a computer that can reach your backend',
-      text: 'Unzip it on the same server as your backend (or any machine on the same network). You need Node.js 18+ OR Docker – this is only for the connector; your backend can be in any language.',
+      text: 'Unzip it on the same server as your backend (or any machine on the same network). You need Node.js 18+ OR Docker – this is only for the connector; your backend can be in any language.\nIf it runs on a different machine than this platform, open .env and set AISAAS_URL to this platform\'s public address (the machine must be able to reach it).',
       code: 'cd ai-connector\nnode connector.js --check      # tests everything\n# or with Docker:\ndocker compose up -d',
     },
     {
@@ -73,7 +73,7 @@ export function buildGuide(stackId: string | null | undefined): { stack: Stack; 
     {
       id: 'config',
       title: '4. Tell it how your users log in',
-      text: 'Edit .env (BACKEND_URL = where your backend runs) and connector.config.json ("auth"):\n• login (recommended): each employee signs in to the assistant with their normal software login. Calls then run with THEIR permissions, so your own role rules always apply. Set "auth.login.path" to your login route and "tokenPath" to where the token is in the response.\n• static: one service API key for everything (simpler, but everyone shares that key\'s rights).\n• none: your API needs no login.',
+      text: 'Edit .env (BACKEND_URL = where your backend runs) and connector.config.json ("auth"):\n• login (recommended): each employee signs in to the assistant with their normal software login. Calls then run with THEIR permissions, so your own role rules always apply. Set "auth.login.path" to your login route and "tokenPath" to where the token is in the response.\n• static: one service API key for everything. Your backend then cannot tell users apart, so the app\'s role settings are the only protection: new tools start switched off and admin-only.\n• none: your API needs no login.',
       code: '{\n  "auth": {\n    "mode": "login",\n    "login": { "path": "/auth/login", "body": { "email": "{{username}}", "password": "{{password}}" }, "tokenPath": "token" }\n  }\n}',
     },
     {

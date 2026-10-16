@@ -292,6 +292,21 @@ describe('AI assistant end to end', () => {
     assert.match(lastAssistant(chat.body), /do not have a tool/);
   });
 
+  it('starts tools switched off and admin-only when one shared service key is used', async () => {
+    const { makeConnectorKey } = await import('../src/modules/ai/connectorKey');
+    const co = (await pool.query(`SELECT id FROM companies WHERE slug = 'other-co'`)).rows[0];
+    const c = (await pool.query(`INSERT INTO connectors (company_id) VALUES ($1) RETURNING id, key_version`, [co.id])).rows[0];
+    const sync = await fetch(base + '/api/connector/tools/sync', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${makeConnectorKey(c.id, c.key_version)}` },
+      body: JSON.stringify({ source: 'openapi', authMode: 'static', tools: [{ method: 'GET', path: '/payroll', summary: 'Payroll' }] }),
+    });
+    assert.equal(sync.status, 200);
+    const t = (await api('GET', '/api/company/ai/tools', { token: other })).body.items[0];
+    assert.equal(t.enabled, false);
+    assert.deepEqual(t.allowedRoles, ['company_admin']);
+  });
+
   it('rotating the key locks the old connector out', async () => {
     const old = (await api('GET', '/api/company/ai/connector/key', { token: admin })).body.key;
     const fresh = (await api('POST', '/api/company/ai/connector/rotate-key', { token: admin })).body.key;
