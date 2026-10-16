@@ -19,6 +19,38 @@ npm test                      # integration tests (needs a database named aisaas
 Local PostgreSQL in one line:
 `createuser -P aisaas && createdb -O aisaas aisaas && createdb -O aisaas aisaas_test`
 
+## AI assistant (connector + chat)
+
+After a company registers (it tells us its backend language), the admin downloads a **connector package** from the app.
+One zip works for every language: it is a small zero-dependency Node program (or Docker image) that runs next to the
+company's backend, learns the API routes (OpenAPI/Swagger JSON, a Postman collection, or by watching live traffic in
+*record mode*) and registers them here as **tools**. Employees then chat with the assistant; it calls those tools **as that
+user** (the user signs in once with their software login; the connector keeps the token, we never store the password).
+
+```
+Company backend  <--HTTP-->  Connector (their network)  --outbound only-->  This API  <-->  Chat app / LLM
+```
+
+Safety design
+
+* Tools are filtered per role before the model sees them, and re-checked at execution (role, enabled, delete allowed, schema).
+* Anything that changes data needs the user's confirmation click; deletes are off until the admin allows them.
+* The company's own backend still enforces its permissions (calls use the user's own token); sensitive fields are
+  stripped by the connector (`redactFields`) and again here before anything reaches the model.
+* Tool/doc output is wrapped as untrusted data; every call is written to `ai_action_logs`.
+* The connector key is derived from the connector id + version (nothing secret is stored) and can be rotated.
+* Each conversation freezes its system prompt and tool list, which keeps prompt caching and the models' "preserved
+  thinking" rule (no history edits) intact.
+
+Run it locally without your own backend:
+
+```bash
+node connector/examples/demo-api/server.js      # demo "company software" on :3100 (admin@demo.test / admin123 ...)
+# in the app: Setup → download the connector, set BACKEND_URL=http://localhost:3100 in its .env, run `node connector.js`
+```
+
+No API key yet? `LLM_PROVIDER=mock` runs the complete flow with a tiny rule-based stand-in model.
+
 ## Roles
 
 | Role | Scope | Can do |
@@ -54,6 +86,9 @@ All errors: `{ "error": { "code": "...", "message": "..." } }`. Auth: `Authoriza
 
 **Company** (`/api/company`) – `GET|PATCH /profile`, `GET /subscription`, `GET /dashboard`,
 `GET|POST /users`, `PATCH|DELETE /users/:id`, `POST /users/:id/reset-password`, `GET /audit-logs`
+
+**AI** – `GET|POST /api/company/ai/*` (admin: overview, connector, download-link, tools, settings, knowledge, logs) ·
+`/api/chat/*` (status, conversations, message, actions/:id/confirm|cancel, connect) · `/api/connector/*` (used by the connector)
 
 **Super Admin** (`/api/admin`)
 * `GET /stats` – companies, trials, paying, expired, expiring in 7/30 days, MRR …

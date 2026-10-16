@@ -1,0 +1,10 @@
+services:
+  ai-connector:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./connector.config.json:/app/connector.config.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the container reach a backend running on this machine
+    # In .env set BACKEND_URL=http://host.docker.internal:3000 (or your backend's service name / URL)

@@ -29,6 +29,7 @@ export function publicCompany(r: any) {
     address: r.address ?? null,
     website: r.website ?? null,
     logoUrl: r.logo_url ?? null,
+    backendStack: r.backend_stack ?? null,
     status: r.status,
     suspendedReason: r.suspended_reason ?? null,
     createdAt: new Date(r.created_at).toISOString(),

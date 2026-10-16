@@ -20,6 +20,6 @@ export function errorHandler(err: any, _req: Request, res: Response, _next: Next
   if (err?.code === '22P02') {
     return res.status(400).json({ error: { code: 'BAD_ID', message: 'Invalid identifier' } });
   }
-  if (!env.isTest) console.error(err);
+  if (!env.isTest || process.env.LOG_ERRORS) console.error(err);
   res.status(500).json({ error: { code: 'INTERNAL', message: 'Something went wrong' } });
 }

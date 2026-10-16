@@ -15,6 +15,7 @@ export const registerCompanySchema = z.object({
   email,
   password: passwordSchema,
   planCode: z.string().trim().max(50).optional(),
+  backendStack: z.string().trim().max(40).optional(),
 });
 
 export const loginSchema = z.object({

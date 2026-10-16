@@ -9,6 +9,7 @@ import { audit } from '../../utils/audit';
 import { badRequest, conflict, forbidden, HttpError, unauthorized } from '../../utils/httpError';
 import { hashPassword, verifyPassword } from '../../utils/password';
 import { uniqueCompanySlug } from '../../utils/slug';
+import { STACKS } from '../ai/guide';
 import { hashToken } from '../../utils/tokens';
 import { issueSession, publicCompany, publicUser, revokeAllSessions } from './session';
 import {
@@ -58,8 +59,8 @@ authRouter.post('/register-company', limiter, async (req: Request, res: Response
   const { company, user } = await withTransaction(async (client) => {
     const c = (
       await client.query(
-        `INSERT INTO companies (name, slug, email, phone) VALUES ($1,$2,$3,$4) RETURNING *`,
-        [body.companyName, slug, body.email, body.companyPhone ?? null],
+        `INSERT INTO companies (name, slug, email, phone, backend_stack) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+        [body.companyName, slug, body.email, body.companyPhone ?? null, STACKS.some((x) => x.id === body.backendStack) ? body.backendStack : null],
       )
     ).rows[0];
     await client.query(

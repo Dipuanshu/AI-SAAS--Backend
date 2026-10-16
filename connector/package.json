@@ -1,0 +1,15 @@
+{
+  "name": "ai-connector",
+  "version": "1.0.0",
+  "description": "Connects your backend (any language) to the AI SaaS assistant",
+  "main": "connector.js",
+  "bin": { "ai-connector": "connector.js" },
+  "scripts": {
+    "start": "node connector.js",
+    "check": "node connector.js --check",
+    "demo": "node examples/demo-api/server.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
+  "private": true
+}
