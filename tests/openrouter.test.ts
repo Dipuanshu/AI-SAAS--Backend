@@ -10,7 +10,7 @@ describe('OpenRouter adapter', () => {
   let mod: typeof import('../src/modules/ai/llm/openrouter');
   let env: typeof import('../src/config/env').env;
   before(async () => {
-    fake = await startFakeOpenRouter({ badModel: 'bad/model:free' });
+    fake = await startFakeOpenRouter({ badModel: 'bad/model:free', forbiddenModel: 'forbidden/model:free' });
     ({ env } = await import('../src/config/env'));
     mod = await import('../src/modules/ai/llm/openrouter');
     env.llm.openrouter.baseUrl = fake.url;
@@ -54,6 +54,16 @@ describe('OpenRouter adapter', () => {
     assert.deepEqual(ids, ['meta-llama/llama-3.3-70b-instruct:free', 'some/other:free']);
     env.llm.openrouter.model = 'a/one:free, b/two:free';
     assert.deepEqual(await mod.candidateModels(), ['a/one:free', 'b/two:free']);
+  });
+
+  it('treats a 403 on one model as model-specific and tries the next (only 401 means a bad key)', async () => {
+    env.llm.openrouter.model = 'forbidden/model:free,good/model:free';
+    const r = await mod.createOpenRouterLlm().complete({ system: 'S', tools: [], messages: [{ role: 'user', content: 'Question: hello' }] });
+    assert.equal(r.content[0]!.type, 'text');
+    assert.deepEqual(fake.requests.map((q) => q.model).slice(-2), ['forbidden/model:free', 'good/model:free']);
+    // when every model fails, the real reason is reported
+    env.llm.openrouter.model = 'forbidden/model:free';
+    await assert.rejects(() => mod.createOpenRouterLlm().complete({ system: 'S', tools: [], messages: [{ role: 'user', content: 'x' }] }), /HTTP 403: Provider returned error - blocked by data policy/);
   });
 
   it('falls back to the next model, and reports a rejected key clearly', async () => {

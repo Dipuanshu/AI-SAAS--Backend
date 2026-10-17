@@ -130,16 +130,21 @@ async function callOnce(model: string, body: Record<string, unknown>): Promise<L
     signal: AbortSignal.timeout(90_000),
   });
   const json: any = await res.json().catch(() => ({}));
-  const apiError = json?.error?.message ?? (res.ok ? null : `HTTP ${res.status}`);
+  const apiError: string | null = json?.error?.message ?? (res.ok ? null : `HTTP ${res.status}`);
+  // OpenRouter often puts the real upstream reason in error.metadata.raw ("Provider returned error" alone says little)
+  const raw = json?.error?.metadata?.raw ? ` - ${String(typeof json.error.metadata.raw === 'string' ? json.error.metadata.raw : JSON.stringify(json.error.metadata.raw)).slice(0, 240)}` : '';
+  const code = Number(json?.error?.code) || res.status;
+  const detail = `${apiError ?? 'empty response'}${raw}`;
 
-  if (res.status === 401 || res.status === 403) {
-    throw new HttpError(502, 'LLM_AUTH', 'The AI provider rejected the API key. Check OPENROUTER_API_KEY on the server.');
+  // Only 401 means the key itself is wrong. 403 / 404 / 429 / 5xx are usually about THIS model (privacy settings,
+  // moderation, no tool support, rate limit, upstream outage): another model may still work.
+  if (code === 401) {
+    throw new HttpError(502, 'LLM_AUTH', `The AI provider rejected the API key (${apiError}). Check the key in .env (OPENROUTER_API_KEY or OPENAI_API_KEY); create a new one at https://openrouter.ai/keys if needed.`);
   }
   if (!res.ok || json?.error || !json?.choices?.[0]) {
-    // 404 "no endpoints support tools", 429 rate limit, 402 credits, 5xx: another model may still work
-    console.warn(`LLM model ${model} failed: ${apiError ?? 'empty response'}`);
-    const e = new RetryNext(String(apiError));
-    (e as any).status = res.status;
+    console.warn(`LLM model ${model} failed (HTTP ${res.status}${code !== res.status ? `, code ${code}` : ''}): ${detail}`);
+    const e = new RetryNext(detail);
+    (e as any).status = code;
     throw e;
   }
   return fromOpenAiMessage(json.choices[0].message, json.choices[0].finish_reason);
@@ -171,7 +176,7 @@ export function createOpenRouterLlm(): Llm {
       }
       resetModelCache(); // the list may be stale: look again next time
       if (lastStatus === 429) throw new HttpError(429, 'LLM_BUSY', 'The free AI models are busy or you hit the daily free limit. Please try again in a minute.');
-      throw new HttpError(502, 'LLM_ERROR', `The AI service could not answer (${lastError.slice(0, 160) || 'no model available'}). Please try again.`);
+      throw new HttpError(502, 'LLM_ERROR', `The AI service could not answer (${(lastStatus ? `HTTP ${lastStatus}: ` : '') + (lastError.slice(0, 200) || 'no model available')}). Please try again.`);
     },
   };
 }

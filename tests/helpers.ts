@@ -94,7 +94,7 @@ function toLlmMessages(msgs: any[]): LlmMessage[] {
   return out;
 }
 
-export async function startFakeOpenRouter(opts: { badModel?: string } = {}): Promise<FakeOpenRouter> {
+export async function startFakeOpenRouter(opts: { badModel?: string; forbiddenModel?: string } = {}): Promise<FakeOpenRouter> {
   const requests: FakeOpenRouter['requests'] = [];
   const mock = createMockLlm();
   const server = http.createServer((req, res) => {
@@ -116,6 +116,7 @@ export async function startFakeOpenRouter(opts: { badModel?: string } = {}): Pro
       if (req.headers.authorization !== 'Bearer test-key') return send(401, { error: { message: 'No auth credentials found' } });
       const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
       requests.push({ model: body.model, body });
+      if (opts.forbiddenModel && body.model === opts.forbiddenModel) return send(403, { error: { message: 'Provider returned error', code: 403, metadata: { raw: 'blocked by data policy' } } });
       if (opts.badModel && body.model === opts.badModel) return send(404, { error: { message: 'No endpoints found that support tool use' } });
       const problem = validate(body);
       if (problem) return send(400, { error: { message: `invalid request: ${problem}` } });
