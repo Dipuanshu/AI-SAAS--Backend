@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
-    "test": "tsx --test --test-concurrency=1 tests/*.test.ts"
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "llm:models": "tsx src/scripts/llmModels.ts",
+    "llm:test": "tsx src/scripts/llmTest.ts"
   },
   "engines": {
     "node": ">=20"

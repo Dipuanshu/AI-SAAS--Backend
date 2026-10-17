@@ -11,10 +11,11 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
-import { unzipTo } from './helpers';
+import { FakeOpenRouter, startFakeOpenRouter, unzipTo } from './helpers';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const demo = require('../connector/examples/demo-api/server.js');
+const DEMO_PATH = require.resolve('../connector/examples/demo-api/server.js');
+// A fresh demo backend (with its in-memory data) for every suite.
+let demo: any;
 
 let saas: Server;
 let base = '';
@@ -46,7 +47,9 @@ const until = async (fn: () => Promise<boolean>, ms = 20000) => {
 };
 const lastAssistant = (v: any) => [...v.items].reverse().find((i: any) => i.role === 'assistant')?.text ?? '';
 
-describe('AI assistant end to end', () => {
+function suite(provider: 'mock' | 'openrouter') {
+  describe(`AI assistant end to end (${provider})`, () => {
+  let fake: FakeOpenRouter | null = null;
   let admin = '';
   let acmeId = '';
   let manager = '';
@@ -62,6 +65,20 @@ describe('AI assistant end to end', () => {
     ({ pool } = await import('../src/db/pool'));
     const { migrate } = await import('../src/db/migrate');
     const { createApp } = await import('../src/app');
+    const { env } = await import('../src/config/env');
+    const { resetLlm } = await import('../src/modules/ai/llm');
+    env.llm.provider = provider;
+    resetLlm();
+    if (provider === 'openrouter') {
+      fake = await startFakeOpenRouter({ badModel: 'bad/model:free' });
+      env.llm.openrouter.apiKey = 'test-key';
+      env.llm.openrouter.baseUrl = fake.url;
+      env.llm.openrouter.model = 'bad/model:free,good/model:free'; // the first one fails: the adapter must fall back
+    }
+    connectorLog = '';
+    delete require.cache[DEMO_PATH];
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    demo = require(DEMO_PATH);
     await migrate(false);
     await pool.query('TRUNCATE audit_logs, refresh_tokens, subscriptions, users, companies RESTART IDENTITY CASCADE');
     saas = createApp().listen(0);
@@ -81,8 +98,8 @@ describe('AI assistant end to end', () => {
       saas.closeAllConnections();
     });
     demo.server.close();
+    await fake?.close();
     await new Promise((r) => setTimeout(r, 300));
-    await pool.end();
   });
 
   it('registers a company with its backend language and shows a tailored guide', async () => {
@@ -322,4 +339,21 @@ describe('AI assistant end to end', () => {
     assert.equal((await ask(admin, 'show products')).status, 403);
     await pool.query(`UPDATE companies SET status = 'active' WHERE id = $1`, [acmeId]);
   });
+
+  if (provider === 'openrouter') {
+    it('talked to the provider in valid OpenAI format, with fallback to the next model', () => {
+      const models = new Set(fake!.requests.map((r) => r.model));
+      assert.ok(models.has('bad/model:free') && models.has('good/model:free'));
+      assert.ok(fake!.requests.some((r) => r.body.messages.some((m: any) => m.role === 'tool')), 'tool results are sent as tool messages');
+      assert.ok(fake!.requests.every((r) => r.body.tools === undefined || r.body.tools.every((t: any) => t.type === 'function')));
+    });
+  }
+  });
+}
+
+suite('mock');
+suite('openrouter');
+
+after(async () => {
+  await pool.end();
 });

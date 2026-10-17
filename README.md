@@ -49,7 +49,10 @@ node connector/examples/demo-api/server.js      # demo "company software" on :31
 # in the app: Setup → download the connector, set BACKEND_URL=http://localhost:3100 in its .env, run `node connector.js`
 ```
 
-No API key yet? `LLM_PROVIDER=mock` runs the complete flow with a tiny rule-based stand-in model.
+AI providers: **OpenRouter** (free models, set `OPENROUTER_API_KEY`; `OPENROUTER_MODEL=auto` picks free tool-capable
+models automatically and falls back from one to the next), **Anthropic** (`ANTHROPIC_API_KEY`, paid, best quality), or
+`LLM_PROVIDER=mock` for a tiny rule-based stand-in with no key at all. `npm run llm:test` checks your key + model,
+`npm run llm:models` lists the free models. Free models are rate limited and weaker at tool calling than Claude.
 
 ## Roles
 

@@ -26,8 +26,16 @@ export const env = {
   // Public URL of this API as seen by company connectors (used in the downloaded connector package).
   publicApiUrl: (process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`).replace(/\/$/, ''),
   llm: {
-    // 'anthropic' | 'mock'. Default: anthropic when a key is present, else not configured.
-    provider: process.env.LLM_PROVIDER ?? (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'none'),
+    // 'anthropic' | 'openrouter' | 'mock'. Default: whichever key is present (Anthropic first), else not configured.
+    provider: process.env.LLM_PROVIDER ?? (process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.OPENROUTER_API_KEY ? 'openrouter' : 'none'),
+    openrouter: {
+      apiKey: process.env.OPENROUTER_API_KEY ?? '',
+      // Comma separated list tried in order, or "auto" / empty = pick currently available FREE models that support tools.
+      model: process.env.OPENROUTER_MODEL ?? 'auto',
+      // Any OpenAI-compatible endpoint works (Groq, Together, a local Ollama ...): change the base URL + key.
+      baseUrl: (process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1').replace(/\/$/, ''),
+      maxTokens: Number(process.env.OPENROUTER_MAX_TOKENS ?? 2000),
+    },
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
     model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5-5',
     effort: process.env.ANTHROPIC_EFFORT ?? 'medium',
