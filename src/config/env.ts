@@ -27,13 +27,14 @@ export const env = {
   publicApiUrl: (process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`).replace(/\/$/, ''),
   llm: {
     // 'anthropic' | 'openrouter' | 'mock'. Default: whichever key is present (Anthropic first), else not configured.
-    provider: process.env.LLM_PROVIDER ?? (process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.OPENROUTER_API_KEY ? 'openrouter' : 'none'),
+    provider: process.env.LLM_PROVIDER ?? (process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY ? 'openrouter' : 'none'),
     openrouter: {
-      apiKey: process.env.OPENROUTER_API_KEY ?? '',
+      // OPENAI_API_KEY / OPENAI_MODEL / OPENAI_BASE_URL are accepted as aliases (same OpenAI-compatible format).
+      apiKey: process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
       // Comma separated list tried in order, or "auto" / empty = pick currently available FREE models that support tools.
-      model: process.env.OPENROUTER_MODEL ?? 'auto',
+      model: process.env.OPENROUTER_MODEL ?? process.env.OPENAI_MODEL ?? 'auto',
       // Any OpenAI-compatible endpoint works (Groq, Together, a local Ollama ...): change the base URL + key.
-      baseUrl: (process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1').replace(/\/$/, ''),
+      baseUrl: (process.env.OPENROUTER_BASE_URL ?? process.env.OPENAI_BASE_URL ?? 'https://openrouter.ai/api/v1').replace(/\/$/, ''),
       maxTokens: Number(process.env.OPENROUTER_MAX_TOKENS ?? 2000),
     },
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
